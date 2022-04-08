@@ -430,7 +430,7 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
             
             queryset = self.get_export_queryset(request)
             # 여기서 쿼리 사이즈 조회
-            max_rows = self.get_use_streaming_response()
+            max_rows = self.get_use_default_export_max_rows()
             count = queryset.count()
             
             if not is_large_export and count >= max_rows:
