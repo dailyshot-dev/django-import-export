@@ -31,7 +31,6 @@ class ImportExportMixinBase:
 class ImportMixin(BaseImportMixin, ImportExportMixinBase):
     """
     Import mixin.
-
     This is intended to be mixed with django.contrib.admin.ModelAdmin
     https://docs.djangoproject.com/en/dev/ref/contrib/admin/
     """
@@ -189,10 +188,8 @@ class ImportMixin(BaseImportMixin, ImportExportMixinBase):
     def get_form_kwargs(self, form, *args, **kwargs):
         """
         Prepare/returns kwargs for the import form.
-
         To distinguish between import and confirm import forms,
         the following approach may be used:
-
             if isinstance(form, ImportForm):
                 # your code here for the import form kwargs
                 # e.g. update.kwargs({...})
@@ -311,7 +308,6 @@ class ImportMixin(BaseImportMixin, ImportExportMixinBase):
 class ExportMixin(BaseExportMixin, ImportExportMixinBase):
     """
     Export mixin.
-
     This is intended to be mixed with django.contrib.admin.ModelAdmin
     https://docs.djangoproject.com/en/dev/ref/contrib/admin/
     """
@@ -321,7 +317,9 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
     export_template_name = 'admin/import_export/export.html'
     #: export data encoding
     to_encoding = None
-
+    #: use default_export_max_rows
+    default_export_max_rows = 50000
+    
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
@@ -343,10 +341,15 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
         codename = get_permission_codename(EXPORT_PERMISSION_CODE, opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
+    def get_use_default_export_max_rows(self):
+        if self.default_export_max_rows is None:
+            return getattr(settings, 'IMPORT_EXPORT_DEFAULT_EXPORT_MAX_ROWS', 50000)
+        else:
+            return self.default_export_max_rows
+    
     def get_export_queryset(self, request):
         """
         Returns export queryset.
-
         Default implementation respects applied search and filters.
         """
         list_display = self.get_list_display(request)
@@ -422,19 +425,23 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
             
             queryset = self.get_export_queryset(request)
             # 여기서 쿼리 사이즈 조회
-            print(queryset.count())
-            export_data = self.get_export_data(file_format, queryset, request=request, encoding=self.to_encoding, is_large_export=is_large_export)
-            content_type = file_format.get_content_type()
-            if is_large_export:
-                response = StreamingHttpResponse(export_data, content_type=content_type)
+            max_rows = self.get_use_default_export_max_rows()
+            count = queryset.count()
+            if not is_large_export and count >= max_rows:
+                messages.error(request, f"{max_rows}개 이상 내보내기를 시도하려면 체크박스를 체크해주세요.")
             else:
-                response = HttpResponse(export_data, content_type=content_type) 
-            response['Content-Disposition'] = 'attachment; filename="%s"' % (
-                self.get_export_filename(request, queryset, file_format),
-            )
+                export_data = self.get_export_data(file_format, queryset, request=request, encoding=self.to_encoding, is_large_export=is_large_export)
+                content_type = file_format.get_content_type()
+                if is_large_export:
+                    response = StreamingHttpResponse(export_data, content_type=content_type)
+                else:
+                    response = HttpResponse(export_data, content_type=content_type) 
+                response['Content-Disposition'] = 'attachment; filename="%s"' % (
+                    self.get_export_filename(request, queryset, file_format),
+                )
 
-            post_export.send(sender=None, model=self.model)
-            return response
+                post_export.send(sender=None, model=self.model)
+                return response
 
         context = self.get_export_context_data()
 
