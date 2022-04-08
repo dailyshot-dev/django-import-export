@@ -433,7 +433,7 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
             max_rows = self.get_use_streaming_response()
             count = queryset.count()
             
-            if count >= max_rows:
+            if not is_large_export and count >= max_rows:
                 raise ValidationError(f"{max_rows}개 이상 내보내기를 시도하려면 체크박스를 체크해주세요.")
             
             export_data = self.get_export_data(file_format, queryset, request=request, encoding=self.to_encoding, is_large_export=is_large_export)
