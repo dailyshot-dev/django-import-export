@@ -321,7 +321,9 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
     export_template_name = 'admin/import_export/export.html'
     #: export data encoding
     to_encoding = None
-
+    #: use default_export_max_rows
+    default_export_max_rows = 50000
+    
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
@@ -343,6 +345,12 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
         codename = get_permission_codename(EXPORT_PERMISSION_CODE, opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
+    def get_use_default_export_max_rows(self):
+        if self.default_export_max_rows is None:
+            return getattr(settings, 'IMPORT_EXPORT_DEFAULT_EXPORT_MAX_ROWS', 50000)
+        else:
+            return self.default_export_max_rows
+    
     def get_export_queryset(self, request):
         """
         Returns export queryset.
@@ -422,7 +430,12 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
             
             queryset = self.get_export_queryset(request)
             # 여기서 쿼리 사이즈 조회
-            print(queryset.count())
+            max_rows = self.get_use_streaming_response()
+            count = queryset.count()
+            
+            if count >= max_rows:
+                raise ValidationError(f"{max_rows}개 이상 내보내기를 시도하려면 체크박스를 체크해주세요.")
+            
             export_data = self.get_export_data(file_format, queryset, request=request, encoding=self.to_encoding, is_large_export=is_large_export)
             content_type = file_format.get_content_type()
             if is_large_export:
