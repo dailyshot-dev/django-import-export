@@ -5,8 +5,8 @@ from django.contrib import admin, messages
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.decorators import method_decorator
@@ -384,10 +384,16 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
         Returns file_format representation for given queryset.
         """
         request = kwargs.pop("request")
+        is_large_export = kwargs.get("is_large_export", False)
         if not self.has_export_permission(request):
             raise PermissionDenied
 
-        data = self.get_data_for_export(request, queryset, *args, **kwargs)
+        data = self.get_data_for_export(request, queryset, *args, **kwargs) 
+        
+        # StreamingResponse 위해 바로 데이터 반환
+        if is_large_export:
+            return data
+        
         export_data = file_format.export_data(data)
         encoding = kwargs.get("encoding")
         if not file_format.is_binary() and encoding:
@@ -406,15 +412,23 @@ class ExportMixin(BaseExportMixin, ImportExportMixinBase):
 
         formats = self.get_export_formats()
         form = ExportForm(formats, request.POST or None)
+        
+        # is_large 를 kwargs 에 넘겨준다.
         if form.is_valid():
+            is_large_export = form.cleaned_data['is_large_export']
             file_format = formats[
                 int(form.cleaned_data['file_format'])
             ]()
-
+            
             queryset = self.get_export_queryset(request)
-            export_data = self.get_export_data(file_format, queryset, request=request, encoding=self.to_encoding)
+            # 여기서 쿼리 사이즈 조회
+            print(queryset.count())
+            export_data = self.get_export_data(file_format, queryset, request=request, encoding=self.to_encoding, is_large_export=is_large_export)
             content_type = file_format.get_content_type()
-            response = HttpResponse(export_data, content_type=content_type)
+            if is_large_export:
+                response = StreamingHttpResponse(export_data, content_type=content_type)
+            else:
+                response = HttpResponse(export_data, content_type=content_type) 
             response['Content-Disposition'] = 'attachment; filename="%s"' % (
                 self.get_export_filename(request, queryset, file_format),
             )

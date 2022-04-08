@@ -927,6 +927,45 @@ class Resource(metaclass=DeclarativeMetaclass):
         """
         Exports a resource.
         """
+        is_large_export = kwargs.get("is_large_export",False)
+        print(is_large_export)
+        if is_large_export:
+            return self._export_as_generator(queryset, *args, **kwargs)
+        return self._export(queryset, *args, **kwargs)
+    
+    def _export_as_generator(self, queryset=None, *args, **kwargs):
+        
+        """
+        Exports a resource as generator.
+        """
+        self.before_export(queryset, *args, **kwargs)
+        
+        if queryset is None:
+            queryset = self.get_queryset()
+            
+        headers = self.get_export_headers()
+        data = tablib.Dataset(headers=headers)
+        iterable = queryset.iterator(chunk_size=self.get_chunk_size()) 
+        
+        chunk_size = self.get_chunk_size()
+        seq = 0
+        
+        for obj in iterable:
+            data.append(self.export_resource(obj))  
+            seq +=1
+            if seq > chunk_size:
+                seq=0
+                yield data.csv
+                data.wipe()
+        
+        yield data.csv
+                
+        self.after_export(queryset, data, *args, **kwargs)
+
+    def _export(self, queryset=None, *args, **kwargs):
+        """
+        Exports a resource.
+        """
 
         self.before_export(queryset, *args, **kwargs)
 
