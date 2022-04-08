@@ -37,11 +37,17 @@ class ConfirmImportForm(forms.Form):
 
 
 class ExportForm(forms.Form):
+    is_large_export = forms.BooleanField(label="Large data export", required=False)
+        
     file_format = forms.ChoiceField(
         label=_('Format'),
         choices=(),
         )
-
+    
+    def _get_select_format_name(self, value):
+        file_format = dict(self.fields["file_format"].choices)
+        return file_format.get(value, "")
+    
     def __init__(self, formats, *args, **kwargs):
         super().__init__(*args, **kwargs)
         choices = []
@@ -51,7 +57,17 @@ class ExportForm(forms.Form):
             choices.insert(0, ('', '---'))
 
         self.fields['file_format'].choices = choices
+        
+    def clean(self):
+        cleaned_data = super().clean() 
+        file_format = self._get_select_format_name(cleaned_data['file_format'])
+        is_large_export = cleaned_data.get("is_large_export", False)
 
+        if is_large_export and file_format != "csv":
+            self.add_error("is_large_export", "큰 데이터 내보내기는 csv 확장자만 이용이 가능합니다.") 
+
+        return cleaned_data
+    
 
 def export_action_form_factory(formats):
     """

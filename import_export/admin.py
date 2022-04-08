@@ -7,8 +7,8 @@ from django.contrib import admin, messages
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.decorators import method_decorator
@@ -359,6 +359,9 @@ class ExportMixin(ImportExportMixinBase):
     #: export data encoding
     to_encoding = "utf-8"
 
+    #: use default_export_max_rows
+    default_export_max_rows = 50000
+
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
@@ -367,6 +370,12 @@ class ExportMixin(ImportExportMixinBase):
                 name='%s_%s_export' % self.get_model_info()),
         ]
         return my_urls + urls
+
+    def get_use_default_export_max_rows(self):
+        if self.default_export_max_rows is None:
+            return getattr(settings, 'IMPORT_EXPORT_DEFAULT_EXPORT_MAX_ROWS', 50000)
+        else:
+            return self.default_export_max_rows
 
     def has_export_permission(self, request):
         """
@@ -450,11 +459,17 @@ class ExportMixin(ImportExportMixinBase):
         Returns file_format representation for given queryset.
         """
         request = kwargs.pop("request")
+        is_large_export = kwargs.get("is_large_export", False)
+                
         if not self.has_export_permission(request):
             raise PermissionDenied
 
         resource_class = self.get_export_resource_class()
         data = resource_class(**self.get_export_resource_kwargs(request)).export(queryset, *args, **kwargs)
+        
+        if is_large_export:
+            return data
+         
         export_data = file_format.export_data(data)
         return export_data
 
@@ -470,21 +485,34 @@ class ExportMixin(ImportExportMixinBase):
 
         formats = self.get_export_formats()
         form = ExportForm(formats, request.POST or None)
+
+        # is_large 를 kwargs 에 넘겨준다.
         if form.is_valid():
+            is_large_export = form.cleaned_data['is_large_export']
             file_format = formats[
                 int(form.cleaned_data['file_format'])
             ]()
 
             queryset = self.get_export_queryset(request)
-            export_data = self.get_export_data(file_format, queryset, request=request)
-            content_type = file_format.get_content_type()
-            response = HttpResponse(export_data, content_type=content_type)
-            response['Content-Disposition'] = 'attachment; filename="%s"' % (
-                self.get_export_filename(request, queryset, file_format),
-            )
+            # 여기서 쿼리 사이즈 조회
+            max_rows = self.get_use_default_export_max_rows()
+            count = queryset.count()
+            if not is_large_export and count >= max_rows:
+                messages.error(request, f"{max_rows}개 이상 내보내기를 시도하려면 체크박스를 체크해주세요.")
+            else:
+                export_data = self.get_export_data(file_format, queryset, request=request, is_large_export=is_large_export)
+                content_type = file_format.get_content_type()
+                if is_large_export:
+                    response = StreamingHttpResponse(export_data, content_type=content_type)
+                else:
+                    response = HttpResponse(export_data, content_type=content_type)
+                
+                response['Content-Disposition'] = 'attachment; filename="%s"' % (
+                    self.get_export_filename(request, queryset, file_format),
+                )
 
-            post_export.send(sender=None, model=self.model)
-            return response
+                post_export.send(sender=None, model=self.model)
+                return response
 
         context = self.get_export_context_data()
 
