@@ -281,7 +281,7 @@ class Resource(metaclass=DeclarativeMetaclass):
 
     def get_chunk_size(self):
         if self._meta.chunk_size is None:
-            return getattr(settings, 'IMPORT_EXPORT_CHUNK_SIZE', 1000)
+            return getattr(settings, 'IMPORT_EXPORT_CHUNK_SIZE', 500)
         else:
             return self._meta.chunk_size
 
@@ -880,6 +880,26 @@ class Resource(metaclass=DeclarativeMetaclass):
                 yield from paginator.get_page(index + 1)
         else:
             yield from queryset.iterator(chunk_size=self.get_chunk_size())
+            
+    def chunked_queryset(self, queryset, chunk_size=10000):
+        """Slice a queryset into chunks. This is useful to avoid memory issues when
+        iterating through large querysets.
+        Code adapted from https://djangosnippets.org/snippets/10599/
+        """
+        if not queryset.exists():
+            return
+        queryset = queryset.order_by("pk")
+        pks = queryset.values_list("pk", flat=True)
+        start_pk = pks[0]
+        while True:
+            try:
+                end_pk = pks.filter(pk__gte=start_pk)[chunk_size]
+            except IndexError:
+                break
+            yield queryset.filter(pk__gte=start_pk, pk__lt=end_pk)
+            start_pk = end_pk
+        yield queryset.filter(pk__gte=start_pk)
+        
     def export(self, queryset=None, *args, **kwargs):
         """
         Exports a resource.
@@ -890,7 +910,7 @@ class Resource(metaclass=DeclarativeMetaclass):
         return self._export(queryset, *args, **kwargs)
 
     def _export_as_generator(self, queryset=None, *args, **kwargs):
-
+    
         """
         Exports a resource as generator.
         """
@@ -901,25 +921,25 @@ class Resource(metaclass=DeclarativeMetaclass):
 
         headers = self.get_export_headers()
         data = tablib.Dataset(headers=headers)
-        iterable = queryset.iterator(chunk_size=self.get_chunk_size()) 
-
+        iterable = self.chunked_queryset(queryset, self.get_chunk_size())
         chunk_size = self.get_chunk_size()
         seq = 0
 
-        for obj in iterable:
-            data.append(self.export_resource(obj))  
-            seq +=1
-            if seq > chunk_size:
-                seq=0
-                yield data.csv
-                del data._data
-                gc.collect()
-
-                data.wipe()
+        for chunk in iterable:
+            for obj in chunk.iterator(chunk_size=self.get_chunk_size()):
+                data.append(self.export_resource(obj))  
+                seq +=1
+                if seq > chunk_size:
+                    seq=0
+                    yield data.csv
+                    del data._data
+                    gc.collect()
+                    data.wipe()
 
         yield data.csv
 
         self.after_export(queryset, data, *args, **kwargs)
+
 
     def _export(self, queryset=None, *args, **kwargs):
         """
