@@ -4,6 +4,7 @@ import traceback
 from collections import OrderedDict
 from copy import deepcopy
 
+import gc                
 import django
 import tablib
 from diff_match_patch import diff_match_patch
@@ -280,7 +281,7 @@ class Resource(metaclass=DeclarativeMetaclass):
 
     def get_chunk_size(self):
         if self._meta.chunk_size is None:
-            return getattr(settings, 'IMPORT_EXPORT_CHUNK_SIZE', 100)
+            return getattr(settings, 'IMPORT_EXPORT_CHUNK_SIZE', 1000)
         else:
             return self._meta.chunk_size
 
@@ -911,6 +912,9 @@ class Resource(metaclass=DeclarativeMetaclass):
             if seq > chunk_size:
                 seq=0
                 yield data.csv
+                del data._data
+                gc.collect()
+
                 data.wipe()
 
         yield data.csv
