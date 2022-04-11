@@ -110,7 +110,7 @@ class TextFormat(TablibFormat):
 
 class CSV(TextFormat):
     TABLIB_MODULE = 'tablib.formats._csv'
-    CONTENT_TYPE = 'text/csv'
+    CONTENT_TYPE = 'text/csv; charset=euc-kr;'
 
     def create_dataset(self, in_stream, **kwargs):
         return super().create_dataset(in_stream, **kwargs)
