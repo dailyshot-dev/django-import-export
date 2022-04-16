@@ -471,14 +471,15 @@ class ExportMixin(ImportExportMixinBase):
         for field in resource_instance.fields.keys():
             if field in selected_fields and not selected_fields[field]:
                 deleted_fields.append(field)
-                
+
         for field in deleted_fields:
             try:
                 del resource_instance.fields[field]
             except KeyError:
                 pass
-        
-        resource_instance.fields
+
+        # 정렬 유지
+        resource_instance._meta.export_order = tuple(k for k in resource_instance._meta.export_order if k not in deleted_fields)
         
         data = resource_instance.export(queryset, *args, **kwargs)
         
