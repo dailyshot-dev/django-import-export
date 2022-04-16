@@ -460,12 +460,27 @@ class ExportMixin(ImportExportMixinBase):
         """
         request = kwargs.pop("request")
         is_large_export = kwargs.get("is_large_export", False)
+        selected_fields = kwargs.get("selected_fields", {})
                 
         if not self.has_export_permission(request):
             raise PermissionDenied
 
         resource_class = self.get_export_resource_class()
-        data = resource_class(**self.get_export_resource_kwargs(request)).export(queryset, *args, **kwargs)
+        resource_instance = resource_class(**self.get_export_resource_kwargs(request))
+        deleted_fields = []
+        for field in resource_instance.fields.keys():
+            if field in selected_fields and not selected_fields[field]:
+                deleted_fields.append(field)
+                
+        for field in deleted_fields:
+            try:
+                del resource_instance.fields[field]
+            except KeyError:
+                pass
+        
+        resource_instance.fields
+        
+        data = resource_instance.export(queryset, *args, **kwargs)
         
         if is_large_export:
             return data
@@ -484,10 +499,12 @@ class ExportMixin(ImportExportMixinBase):
             raise PermissionDenied
 
         formats = self.get_export_formats()
-        form = ExportForm(formats, request.POST or None)
-
+        resource_class = self.get_export_resource_class()(**self.get_export_resource_kwargs(request))
+        
+        form = ExportForm(formats, request.POST or None, resource_fields=resource_class.get_export_fields())
         # is_large 를 kwargs 에 넘겨준다.
         if form.is_valid():
+            selected_fields = form.get_selected_fields()
             is_large_export = form.cleaned_data['is_large_export']
             file_format = formats[
                 int(form.cleaned_data['file_format'])
@@ -500,7 +517,7 @@ class ExportMixin(ImportExportMixinBase):
             if not is_large_export and count >= max_rows:
                 messages.error(request, f"{max_rows}개 이상 내보내기를 시도하려면 체크박스를 체크해주세요.")
             else:
-                export_data = self.get_export_data(file_format, queryset, request=request, is_large_export=is_large_export)
+                export_data = self.get_export_data(file_format, queryset, request=request, is_large_export=is_large_export, selected_fields = selected_fields)
                 content_type = file_format.get_content_type()
                 if is_large_export:
                     response = StreamingHttpResponse(export_data, content_type=content_type)

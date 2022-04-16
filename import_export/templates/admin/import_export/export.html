@@ -9,23 +9,42 @@
 
 {% block content %}
 <form action="" method="POST">
-  {% csrf_token %}
-
+  {% csrf_token %} 
     <fieldset class="module aligned">
+      <h2>내보내기 옵션</h2>
       {% for field in form %}
-        <div class="form-row">
-          {{ field.errors }}
+        {% if "resource_" not in field.label_tag %}
+          <div class="form-row"> 
+            {{ field.errors }}
 
-          {{ field.label_tag }}
+            {{ field.label_tag }}
 
-          {{ field }}
+            {{ field }}
 
-          {% if field.field.help_text %}
-          <p class="help">{{ field.field.help_text|safe }}</p>
-          {% endif %}
-        </div>
+            {% if field.field.help_text %}
+            <p class="help">{{ field.field.help_text|safe }}</p>
+            {% endif %} 
+          </div>
+        {% endif %}
+      {% endfor %}
+      <h2>내보낼 필드 선택</h2>
+      {% for field in form %}
+        {% if "resource_" in field.label_tag %}
+          <div class="form-row"> 
+            {{ field.errors }}
+
+            {{ field.label_tag }}
+
+            {{ field }}
+
+            {% if field.field.help_text %}
+            <p class="help">{{ field.field.help_text|safe }}</p>
+            {% endif %} 
+          </div>
+        {% endif %}
       {% endfor %}
     </fieldset>
+    
 
     <div class="submit-row">
       <input type="submit" class="default" value="{% trans "Submit" %}">

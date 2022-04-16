@@ -1,9 +1,10 @@
 import os.path
+from typing import Dict, List
 
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.utils.translation import gettext_lazy as _
-
+from import_export.fields import Field
 
 class ImportForm(forms.Form):
     import_file = forms.FileField(
@@ -48,16 +49,35 @@ class ExportForm(forms.Form):
         file_format = dict(self.fields["file_format"].choices)
         return file_format.get(value, "")
     
+    
+    def _create_resource_fields(self, fields: List[Field]):
+        for field in fields:
+            field_name = f"resource_{field.column_name}"
+            self.fields[field_name] = forms.BooleanField(label=f"{field.column_name}", required=False, initial=True)
+    
     def __init__(self, formats, *args, **kwargs):
+        resource_fields = kwargs.pop("resource_fields", [])
         super().__init__(*args, **kwargs)
-        choices = []
+        choices = [] 
+        
         for i, f in enumerate(formats):
             choices.append((str(i), f().get_title(),))
         if len(formats) > 1:
             choices.insert(0, ('', '---'))
 
         self.fields['file_format'].choices = choices
+        self._create_resource_fields(resource_fields)
+    
+    def get_selected_fields(self) -> Dict[str,bool]:
+        cleaned_data = super().clean() 
+        result = {}
         
+        for field_name in self.fields.keys():
+            if "resource_" in field_name:
+                 result[field_name.replace("resource_","")] = cleaned_data.get(field_name, True)
+                 
+        return result
+    
     def clean(self):
         cleaned_data = super().clean() 
         file_format = self._get_select_format_name(cleaned_data['file_format'])
