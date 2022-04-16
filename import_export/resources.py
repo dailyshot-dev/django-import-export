@@ -239,7 +239,7 @@ class Resource(metaclass=DeclarativeMetaclass):
         # Instances should always modify self.fields; they should not modify
         # cls.fields.
         self.fields = deepcopy(self.fields)
-
+        self.export_order = deepcopy(self._meta.export_order)
         # lists to hold model instances in memory when bulk operations are enabled
         self.create_instances = list()
         self.update_instances = list()
@@ -823,7 +823,7 @@ class Resource(metaclass=DeclarativeMetaclass):
         return result
 
     def get_export_order(self):
-        order = tuple(self._meta.export_order or ())
+        order = tuple(self.export_order or ())
         return order + tuple(k for k in self.fields if k not in order)
 
     def before_export(self, queryset, *args, **kwargs):

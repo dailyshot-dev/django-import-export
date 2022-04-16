@@ -1,4 +1,5 @@
 from datetime import datetime
+from copy import deepcopy
 
 import django
 from django import forms
@@ -479,7 +480,7 @@ class ExportMixin(ImportExportMixinBase):
                 pass
 
         # 정렬 유지
-        resource_instance._meta.export_order = tuple(k for k in resource_instance._meta.export_order if k not in deleted_fields)
+        resource_instance.export_order = tuple(k for k in resource_instance.export_order if k not in deleted_fields)
         
         data = resource_instance.export(queryset, *args, **kwargs)
         
