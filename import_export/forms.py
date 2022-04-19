@@ -1,10 +1,12 @@
 import os.path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.utils.translation import gettext_lazy as _
 from import_export.fields import Field
+from import_export.resources import Resource
+
 
 class ImportForm(forms.Form):
     import_file = forms.FileField(
@@ -50,13 +52,18 @@ class ExportForm(forms.Form):
         return file_format.get(value, "")
     
     
-    def _create_resource_fields(self, fields: List[Field]):
-        for field in fields:
-            field_name = f"resource_{field.column_name}"
-            self.fields[field_name] = forms.BooleanField(label=f"{field.column_name}", required=False, initial=True)
+    def _create_resource_fields(self, resource_instance: Resource):
+
+        resource_fields: List[Field] = resource_instance.fields
+        export_order: Tuple[str] = resource_instance.get_export_order()
+
+        for field in export_order:
+            field_name = f"resource_{field}"
+            self.fields[field_name] = forms.BooleanField(label=f"{resource_fields[field].column_name}", required=False, initial=True)
     
     def __init__(self, formats, *args, **kwargs):
-        resource_fields = kwargs.pop("resource_fields", [])
+        resource_instance = kwargs.pop("resource_instance", None)
+
         super().__init__(*args, **kwargs)
         choices = [] 
         
@@ -66,7 +73,7 @@ class ExportForm(forms.Form):
             choices.insert(0, ('', '---'))
 
         self.fields['file_format'].choices = choices
-        self._create_resource_fields(resource_fields)
+        self._create_resource_fields(resource_instance)
     
     def get_selected_fields(self) -> Dict[str,bool]:
         cleaned_data = super().clean() 

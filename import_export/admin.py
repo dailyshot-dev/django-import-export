@@ -468,8 +468,9 @@ class ExportMixin(ImportExportMixinBase):
 
         resource_class = self.get_export_resource_class()
         resource_instance = resource_class(**self.get_export_resource_kwargs(request))
+
         deleted_fields = []
-        for field in resource_instance.fields.keys():
+        for field in resource_instance.export_order:
             if field in selected_fields and not selected_fields[field]:
                 deleted_fields.append(field)
 
@@ -501,9 +502,9 @@ class ExportMixin(ImportExportMixinBase):
             raise PermissionDenied
 
         formats = self.get_export_formats()
-        resource_class = self.get_export_resource_class()(**self.get_export_resource_kwargs(request))
+        resource_instance = self.get_export_resource_class()(**self.get_export_resource_kwargs(request))
         
-        form = ExportForm(formats, request.POST or None, resource_fields=resource_class.get_export_fields())
+        form = ExportForm(formats, request.POST or None, resource_instance=resource_instance)
         # is_large 를 kwargs 에 넘겨준다.
         if form.is_valid():
             selected_fields = form.get_selected_fields()
