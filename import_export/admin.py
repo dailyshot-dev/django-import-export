@@ -468,9 +468,10 @@ class ExportMixin(ImportExportMixinBase):
 
         resource_class = self.get_export_resource_class()
         resource_instance = resource_class(**self.get_export_resource_kwargs(request))
-
+        
+        export_order = resource_instance.get_export_order()
         deleted_fields = []
-        for field in resource_instance.export_order:
+        for field in export_order:
             if field in selected_fields and not selected_fields[field]:
                 deleted_fields.append(field)
 
@@ -481,7 +482,7 @@ class ExportMixin(ImportExportMixinBase):
                 pass
 
         # 정렬 유지
-        resource_instance.export_order = tuple(k for k in resource_instance.export_order if k not in deleted_fields)
+        resource_instance.export_order = tuple(k for k in export_order if k not in deleted_fields)
         
         data = resource_instance.export(queryset, *args, **kwargs)
         
