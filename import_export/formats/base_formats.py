@@ -194,7 +194,7 @@ class XLSX(TablibFormat):
 #: used or not is depending on their implementation in the tablib library.
 DEFAULT_FORMATS = [fmt for fmt in (
     CSV,
-    XLS,
+    # XLS,
     XLSX,
     TSV,
     ODS,
