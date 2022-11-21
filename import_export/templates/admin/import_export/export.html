@@ -28,6 +28,10 @@
         {% endif %}
       {% endfor %}
       <h2>내보낼 필드 선택</h2>
+      <div class="form-row">
+        <button type="button" onclick="toggleAllCheckBoxes(true)">전체 선택</button>
+        <button type="button" onclick="toggleAllCheckBoxes(false)">전체 해제</button>
+      </div> 
       {% for field in form %}
         {% if "resource_" in field.label_tag %}
           <div class="form-row"> 
@@ -51,3 +55,15 @@
     </div>
 </form>
 {% endblock %}
+
+{% block footer %}
+<script type="text/javascript">
+  const toggleAllCheckBoxes = (toggle) => {
+    checkboxes = document.querySelectorAll('input[name*=resource_]');
+    for(let checkbox of checkboxes) {
+      checkbox.checked = toggle
+    }
+  }
+</script>
+{% endblock %}
+ 
