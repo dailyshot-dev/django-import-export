@@ -926,8 +926,8 @@ class Resource(metaclass=DeclarativeMetaclass):
         chunk_size = self.get_chunk_size()
         seq = 0
 
-        for chunk in iterable:
-            for obj in chunk.iterator(chunk_size=self.get_chunk_size()):
+        for chunk_queryset in iterable:
+            for obj in self.iter_queryset(chunk_queryset):
                 data.append(self.export_resource(obj))  
                 seq +=1
                 if seq > chunk_size:
