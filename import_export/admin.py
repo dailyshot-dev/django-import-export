@@ -448,9 +448,10 @@ class ExportMixin(ImportExportMixinBase):
             'list_max_show_all': self.list_max_show_all,
             'list_editable': self.list_editable,
             'model_admin': self,
+            'sortable_by': self.sortable_by,
+            'search_help_text': self.search_help_text,
         }
-        if django.VERSION >= (2, 1):
-            changelist_kwargs['sortable_by'] = self.sortable_by
+
         cl = ChangeList(**changelist_kwargs)
 
         return cl.get_queryset(request)
@@ -612,7 +613,7 @@ class ExportActionMixin(ExportMixin):
     export_admin_action.short_description = _(
         'Export selected %(verbose_name_plural)s')
 
-    actions = admin.ModelAdmin.actions + [export_admin_action]
+    actions = list(admin.ModelAdmin.actions) + [export_admin_action]
 
     @property
     def media(self):
