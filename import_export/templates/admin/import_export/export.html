@@ -15,35 +15,39 @@
       {% for field in form %}
         {% if "resource_" not in field.label_tag %}
           <div class="form-row"> 
-            {{ field.errors }}
+            <div class="flex-container"> 
+              {{ field.errors }}
 
-            {{ field.label_tag }}
+              {{ field.label_tag }}
 
-            {{ field }}
+              {{ field }}
 
-            {% if field.field.help_text %}
-            <p class="help">{{ field.field.help_text|safe }}</p>
-            {% endif %} 
+              {% if field.field.help_text %}
+              <p class="help">{{ field.field.help_text|safe }}</p>
+              {% endif %} 
+            </div>
           </div>
         {% endif %}
       {% endfor %}
       <h2>내보낼 필드 선택</h2>
       <div class="form-row">
-        <button type="button" onclick="toggleAllCheckBoxes(true)">전체 선택</button>
-        <button type="button" onclick="toggleAllCheckBoxes(false)">전체 해제</button>
+        <button type="button" class ="button" onclick="toggleAllCheckBoxes(true)">전체 선택</button>
+        <button type="button" class ="button" onclick="toggleAllCheckBoxes(false)">전체 해제</button>
       </div> 
       {% for field in form %}
         {% if "resource_" in field.label_tag %}
           <div class="form-row"> 
-            {{ field.errors }}
+            <div class="flex-container">
+              {{ field.errors }}
 
-            {{ field.label_tag }}
+              {{ field.label_tag }}
 
-            {{ field }}
+              {{ field }}
 
-            {% if field.field.help_text %}
-            <p class="help">{{ field.field.help_text|safe }}</p>
-            {% endif %} 
+              {% if field.field.help_text %}
+              <p class="help">{{ field.field.help_text|safe }}</p>
+              {% endif %}
+            </div>
           </div>
         {% endif %}
       {% endfor %}
